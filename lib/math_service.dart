@@ -1,23 +1,23 @@
 // lib/math_service.dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-
 class MathService {
-  // URL of your Python math engine (for development, use localhost)
-  static const String apiUrl = "http://localhost:5000/calculate";
-
-  static Future<String?> calculateProbability(String event) async {
-    final response = await http.post(
-      Uri.parse(apiUrl),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"event": event}),
-    );
-
-    if (response.statusCode == 200) {
-      final jsonResponse = jsonDecode(response.body);
-      return jsonResponse["probability"].toString();
+  /// Evaluates a simple arithmetic expression of the form "a/b" or a plain number.
+  static Future<String?> calculateExpression(String expression) async {
+    if (expression.contains("/")) {
+      List<String> parts = expression.split("/");
+      if (parts.length == 2) {
+        double? numerator = double.tryParse(parts[0].trim());
+        double? denominator = double.tryParse(parts[1].trim());
+        if (numerator != null && denominator != null && denominator != 0) {
+          double value = numerator / denominator;
+          return value.toString();
+        }
+      }
     } else {
-      return null;
+      double? value = double.tryParse(expression.trim());
+      if (value != null) {
+        return value.toString();
+      }
     }
+    return null;
   }
 }

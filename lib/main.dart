@@ -4,11 +4,11 @@ import 'package:provider/provider.dart';
 import 'api_service.dart';
 import 'db_service.dart';
 import 'math_service.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Ensures everything is set up before running
-  await dotenv.load(fileName: ".env"); // Load environment variables
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure everything is set up
+  await dotenv.load(fileName: ".env"); // Load API keys and config from .env file
   runApp(ProbabilityApp());
 }
 
@@ -29,7 +29,6 @@ class ProbabilityApp extends StatelessWidget {
   }
 }
 
-// lib/main.dart (excerpt)
 class ProbabilityScreen extends StatelessWidget {
   final TextEditingController controller = TextEditingController();
 
@@ -69,12 +68,12 @@ class ProbabilityScreen extends StatelessWidget {
   }
 }
 
-
+// Inside lib/main.dart (ProbabilityProvider class)
 class ProbabilityProvider with ChangeNotifier {
   String result = "";
 
   Future<void> calculateProbability(String event) async {
-    // Check local cache first
+    // Check local cache first.
     String? cached = await DBService.getCachedResult(event);
     if (cached != null) {
       result = "Cached: $cached";
@@ -82,21 +81,20 @@ class ProbabilityProvider with ChangeNotifier {
       return;
     }
 
-    // For well-defined math events, use MathService; otherwise, use AI.
-    if (event.toLowerCase().contains("coin") ||
-        event.toLowerCase().contains("dice") ||
-        event.toLowerCase().contains("lottery")) {
-      String? mathResult = await MathService.calculateProbability(event);
-      if (mathResult != null) {
-        result = "Math Engine Result: $mathResult";
-      } else {
-        result = "Math Engine: Unable to calculate for this event.";
-      }
+    // Use the hybrid method for all events.
+    String hybridResult = await AIService.getProbability(event);
+
+    // If the result indicates a rate limit or token error, simulate a queue.
+    if (hybridResult.contains("rate limit") ||
+        hybridResult.contains("out of tokens")) {
+      result = "Queue: High demand detected. Please wait 60 seconds and try again.";
     } else {
-      result = await AIService.getProbability(event);
+      result = hybridResult;
     }
-    // Save the result to cache
+
     await DBService.saveResult(event, result);
     notifyListeners();
   }
 }
+
+
