@@ -68,12 +68,12 @@ class ProbabilityScreen extends StatelessWidget {
   }
 }
 
-// Inside lib/main.dart (ProbabilityProvider class)
+// Inside main.dart (ProbabilityProvider)
 class ProbabilityProvider with ChangeNotifier {
   String result = "";
 
   Future<void> calculateProbability(String event) async {
-    // Check local cache first.
+    // 1) Check local cache
     String? cached = await DBService.getCachedResult(event);
     if (cached != null) {
       result = "Cached: $cached";
@@ -81,20 +81,34 @@ class ProbabilityProvider with ChangeNotifier {
       return;
     }
 
-    // Use the hybrid method for all events.
-    String hybridResult = await AIService.getProbability(event);
-
-    // If the result indicates a rate limit or token error, simulate a queue.
-    if (hybridResult.contains("rate limit") ||
-        hybridResult.contains("out of tokens")) {
-      result = "Queue: High demand detected. Please wait 60 seconds and try again.";
-    } else {
-      result = hybridResult;
+    // 2) Local Math synergy
+    List<double> combinedVals = [];
+    double? localVal = MathService.parseExpression(event);
+    if (localVal != null) {
+      combinedVals.add(localVal);
     }
 
+    // 3) AI concurrency
+    List<double> aiVals = await AIService.getProbabilityConcurrent(event);
+    combinedVals.addAll(aiVals);
+
+    // 4) Evaluate final result
+    if (combinedVals.isEmpty) {
+      // No numeric results => error or rate limit
+      result = "Error: Could not compute any probability (0 results).";
+    } else {
+      double avg = combinedVals.reduce((a, b) => a + b) / combinedVals.length;
+      if (avg < 1e-6) {
+        avg = 1e-6; // never zero
+      }
+      result = avg.toStringAsFixed(6);
+    }
+
+    // 5) Cache & notify
     await DBService.saveResult(event, result);
     notifyListeners();
   }
 }
+
 
 

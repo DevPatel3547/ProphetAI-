@@ -1,70 +1,102 @@
 // lib/api_service.dart
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
-import 'math_service.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AIService {
-  static const String apiUrl = "https://api.together.xyz/v1/chat/completions";
-  static final String apiKey = dotenv.env['TOGETHER_API_KEY'] ?? "";
-  static const String modelName = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free";
+  /// Calls a single provider with a numeric-only system prompt, returning numeric string or null.
+  static Future<String?> _callProvider(
+    Map<String, String> provider,
+    String query,
+    String systemPrompt,
+  ) async {
+    final name = provider['name']!;
+    final apiUrl = provider['apiUrl']!;
+    final apiKey = provider['apiKey']!;
+    final model = provider['model']!;
 
-  /// Calls the Together API to extract a math expression from the query.
-  static Future<Map<String, dynamic>?> getStructuredResponse(String query) async {
-    final messages = [
-      {
-        "role": "system",
-        "content":
-            "Extract all necessary parameters from the following question and output ONLY a JSON object with a key 'expression' containing a valid mathematical expression (using standard arithmetic operators) that evaluates to a probability between 0 and 1. Do not include any additional text."
-      },
-      {"role": "user", "content": query}
-    ];
+    // Build request differently depending on provider.
+    if (name == "cohere") {
+      // Cohere uses { model: "command-r", message: "System: <prompt>\nUser: <query>" }
+      final cohereMsg = "System: $systemPrompt\nUser: $query";
+      final body = {
+        "model": model,
+        "message": cohereMsg,
+      };
+      return _postRequest(apiUrl, apiKey, body, providerName: name);
+    } else {
+      // For Together, OpenRouter, Groq => OpenAI-like format
+      final body = {
+        "model": model,
+        "messages": [
+          {"role": "system", "content": systemPrompt},
+          {"role": "user", "content": query},
+        ]
+      };
+      return _postRequest(apiUrl, apiKey, body, providerName: name);
+    }
+  }
 
-    final body = jsonEncode({
-      "model": modelName,
-      "messages": messages,
-    });
-
+  /// Helper to make the POST request and parse the result.
+  static Future<String?> _postRequest(
+    String apiUrl,
+    String apiKey,
+    Map<String, dynamic> body, {
+    required String providerName,
+  }) async {
     final headers = {
       "Authorization": "Bearer $apiKey",
       "Content-Type": "application/json"
     };
 
     try {
-      final response = await http.post(Uri.parse(apiUrl), headers: headers, body: body);
+      final response = await http.post(Uri.parse(apiUrl),
+          headers: headers, body: jsonEncode(body));
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        String content = jsonResponse["choices"][0]["message"]["content"].trim();
-        // Attempt to parse the content as JSON.
-        return jsonDecode(content);
+
+        if (providerName == "cohere") {
+          // Cohere => { "reply": "some text" }
+          if (jsonResponse["reply"] is String) {
+            return jsonResponse["reply"].trim();
+          }
+        } else {
+          // Together / OpenRouter / Groq => { "choices": [ { "message": { "content": "..." } } ] }
+          if (jsonResponse["choices"] != null &&
+              jsonResponse["choices"][0]["message"] != null) {
+            return jsonResponse["choices"][0]["message"]["content"].trim();
+          }
+        }
       } else {
-        return {"error": "Error: ${response.statusCode} - ${response.body}"};
+        print("Error from $providerName => ${response.statusCode}: ${response.body}");
       }
     } catch (e) {
-      return {"error": "Error: $e"};
+      print("Error calling $providerName => $e");
     }
+    return null;
   }
 
-  /// Hybrid method: Uses AI to extract a math expression, then uses MathService to evaluate it.
-  static Future<String> getHybridProbability(String query) async {
-    final structured = await getStructuredResponse(query);
-    if (structured == null) return "Error: Structured response is null";
-    if (structured.containsKey("error")) return structured["error"];
-    if (structured.containsKey("expression")) {
-      String expression = structured["expression"];
-      String? mathResult = await MathService.calculateExpression(expression);
-      if (mathResult != null && double.tryParse(mathResult) != null) {
-        return mathResult;
-      } else {
-        return "Error: Math evaluation failed.";
+  /// Calls all providers in parallel, returning a list of numeric results.
+  static Future<List<double>> getProbabilityConcurrent(String query) async {
+    // We'll define a short system prompt to force numeric-only output.
+    const systemPrompt =
+        "Answer only with a single numeric value between 0 and 1. No extra text.";
+
+    // Launch all calls in parallel using Future.wait
+    final futures = APIConfig.providers.map((provider) async {
+      final rawResult = await _callProvider(provider, query, systemPrompt);
+      if (rawResult != null) {
+        final val = double.tryParse(rawResult);
+        if (val != null) {
+          return val;
+        }
       }
-    }
-    return "Error: No expression found.";
-  }
+      return null;
+    }).toList();
 
-  /// Main entry point to get the probability using the hybrid approach.
-  static Future<String> getProbability(String query) async {
-    return await getHybridProbability(query);
+    final results = await Future.wait(futures);
+    // Filter out null
+    return results.whereType<double>().toList();
   }
 }
