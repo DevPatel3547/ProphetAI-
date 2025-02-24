@@ -3,16 +3,37 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
 
-/// Data class to hold numeric probability plus short & detailed explanations.
+/// Data class for storing the four fields from the AI:
+/// probability, short, paragraph, math
 class AIProbabilityResult {
   final double probability;
   final String shortExplanation;
-  final String detailedExplanation;
+  final String paragraphExplanation;
+  final String mathExplanation;
 
-  AIProbabilityResult(this.probability, this.shortExplanation, this.detailedExplanation);
+  AIProbabilityResult(
+    this.probability,
+    this.shortExplanation,
+    this.paragraphExplanation,
+    this.mathExplanation,
+  );
 }
 
 class AIService {
+  /// Public method: returns "prob|short|paragraph|math"
+  static Future<String> getProbability(String query) async {
+    final result = await getProbabilityResult(query);
+    if (result == null) {
+      return "Error: All providers failed or invalid data.";
+    }
+    double prob = result.probability;
+    String shortExp = result.shortExplanation;
+    String paragraphExp = result.paragraphExplanation;
+    String mathExp = result.mathExplanation;
+
+    return "${prob.toStringAsFixed(6)}|$shortExp|$paragraphExp|$mathExp";
+  }
+
   /// Rotates through each provider in APIConfig until one returns a valid result.
   static Future<AIProbabilityResult?> getProbabilityResult(String query) async {
     for (var provider in APIConfig.providers) {
@@ -22,25 +43,26 @@ class AIService {
     return null;
   }
 
-  /// Calls one provider with a system prompt that demands a JSON:
-  /// {
-  ///   "probability": <0-1 but not 0>,
-  ///   "short_explanation": "<some short lines>",
-  ///   "detailed_explanation": "<longer detail>",
-  /// }
+  /// Calls one provider with a system prompt that demands 4 JSON keys:
+  /// 1) "probability" (0 < p <= 1)
+  /// 2) "short_explanation"
+  /// 3) "paragraph_explanation"
+  /// 4) "math_explanation"
   static Future<AIProbabilityResult?> _callProvider(Map<String, String> provider, String query) async {
     final name = provider['name']!;
     final apiUrl = provider['apiUrl']!;
     final apiKey = provider['apiKey']!;
     final model = provider['model']!;
 
+    // The updated system prompt:
     const systemPrompt = """
-You are an AI that calculates the probability of any event.
-Output ONLY a JSON object with exactly three keys:
-1) "probability": a numeric value between 0 and 1 (never 0, if it is near 0 clamp it to 0.000001).
-2) "short_explanation": a brief 1-2 line explanation.
-3) "detailed_explanation": a more thorough 5+ line explanation of the factors and math behind that probability.
-No extra text outside the JSON.
+You are an AI that calculates the probability of any event, returning exactly FOUR keys in JSON:
+1) "probability" => numeric in (0,1], never 0 (clamp to 0.000001 if near zero).
+2) "short_explanation" => 1-2 line summary.
+3) "paragraph_explanation" => longer 3-5 line discussion in plain text.
+4) "math_explanation" => the actual math or formula used in your reasoning.
+
+Output ONLY this JSON. No extra text outside the JSON.
 """;
 
     Map<String, dynamic> requestBody;
@@ -75,7 +97,8 @@ No extra text outside the JSON.
       );
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        // Parse response based on provider
+
+        // Extract the AI's textual output
         String rawOutput;
         if (name == "cohere") {
           // Cohere => { "reply": "some text" }
@@ -92,14 +115,18 @@ No extra text outside the JSON.
             if (parsed is Map &&
                 parsed.containsKey("probability") &&
                 parsed.containsKey("short_explanation") &&
-                parsed.containsKey("detailed_explanation")) {
+                parsed.containsKey("paragraph_explanation") &&
+                parsed.containsKey("math_explanation")) {
+
               double? prob = double.tryParse(parsed["probability"].toString());
               String shortExp = parsed["short_explanation"].toString();
-              String detailedExp = parsed["detailed_explanation"].toString();
+              String paraExp = parsed["paragraph_explanation"].toString();
+              String mathExp = parsed["math_explanation"].toString();
+
               if (prob != null && prob > 0 && prob <= 1) {
                 // Final clamp
                 if (prob < 1e-6) prob = 1e-6;
-                return AIProbabilityResult(prob, shortExp, detailedExp);
+                return AIProbabilityResult(prob, shortExp, paraExp, mathExp);
               }
             }
           } catch (e) {
@@ -113,18 +140,5 @@ No extra text outside the JSON.
       print("Error calling $name => $e");
     }
     return null;
-  }
-
-  /// Public method: returns "probability|short_explanation|detailed_explanation"
-  static Future<String> getProbability(String query) async {
-    final result = await getProbabilityResult(query);
-    if (result == null) {
-      return "Error: All providers failed or invalid data.";
-    }
-    double prob = result.probability;
-    String shortExp = result.shortExplanation;
-    String detailedExp = result.detailedExplanation;
-
-    return "${prob.toStringAsFixed(6)}|$shortExp|$detailedExp";
   }
 }

@@ -7,7 +7,7 @@ import 'package:probability_app/main.dart';
 void main() {
   testWidgets('ProbabilityApp smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(ProbabilityApp());
+    await tester.pumpWidget(ProphetAIApp());
 
     // Verify that our UI contains a TextField and an ElevatedButton.
     expect(find.byType(TextField), findsOneWidget);
