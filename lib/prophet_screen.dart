@@ -2,8 +2,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'documentation_screen.dart';
-import 'intro_screen.dart'; // So we can go "Home"
+import 'intro_screen.dart';
+import 'how_to_use_screen.dart';
 import 'api_service.dart' as synergy;
 import 'db_service.dart';
 import 'math_service.dart';
@@ -24,8 +24,7 @@ class ProphetScreen extends StatelessWidget {
 }
 
 class ProphetChatUI extends StatelessWidget {
-  final TextEditingController controller = TextEditingController();
-  ProphetChatUI({Key? key}) : super(key: key);
+  const ProphetChatUI({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -34,24 +33,16 @@ class ProphetChatUI extends StatelessWidget {
       children: [
         Column(
           children: [
-            // Top bar
+            // Dark top bar
             Container(
               color: const Color(0xFF202123),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  const Text(
-                    'ProphetAI',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  // New "Home" icon button
-                  IconButton(
-                    tooltip: "Home",
-                    icon: const Icon(Icons.home_outlined, color: Colors.white),
-                    onPressed: () {
-                      // Fade transition back to IntroScreen
-                      Navigator.pushReplacement(
+                  InkWell(
+                    onTap: () {
+                      // Normal push => fade
+                      Navigator.push(
                         context,
                         PageRouteBuilder(
                           pageBuilder: (context, animation, secondaryAnimation) => const IntroScreen(),
@@ -61,14 +52,24 @@ class ProphetChatUI extends StatelessWidget {
                         ),
                       );
                     },
+                    child: const Text(
+                      'ProphetAI',
+                      style: TextStyle(fontFamily: 'Lobster', color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ),
+                  const Spacer(),
                   IconButton(
-                    tooltip: "Documentation",
-                    icon: const Icon(Icons.menu_book, color: Colors.white),
+                    tooltip: "How to Use",
+                    icon: const Icon(Icons.help_outline, color: Colors.white),
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => DocumentationScreen()),
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => const HowToUseScreen(),
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            return FadeTransition(opacity: animation, child: child);
+                          },
+                        ),
                       );
                     },
                   ),
@@ -82,6 +83,7 @@ class ProphetChatUI extends StatelessWidget {
                 ],
               ),
             ),
+
             if (provider.queueMessage.isNotEmpty)
               Container(
                 color: Colors.amber.shade100,
@@ -89,103 +91,93 @@ class ProphetChatUI extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 child: Text(
                   provider.queueMessage,
-                  style: const TextStyle(fontSize: 14, color: Colors.brown),
+                  style: const TextStyle(fontFamily: 'Lobster', fontSize: 14, color: Colors.brown),
                 ),
               ),
             const Divider(height: 1, color: Colors.grey),
+
+            // conversation
             Expanded(
-              child: Consumer<ProphetProvider>(
-                builder: (context, provider, child) {
-                  if (provider.conversation.isEmpty) {
-                    return Center(
+              child: provider.conversation.isEmpty
+                  ? Center(
                       child: Text(
                         "Ask ProphetAI about any probability!",
-                        style: TextStyle(fontSize: 16, color: Colors.white70),
+                        style: TextStyle(fontFamily: 'Lobster', fontSize: 16, color: Colors.white70),
                       ),
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: provider.conversation.length,
-                    itemBuilder: (context, index) {
-                      if (index < 0 || index >= provider.conversation.length) return const SizedBox.shrink();
-                      final msg = provider.conversation[index];
-                      return ChatBubble(
-                        role: msg["role"]!,
-                        question: msg["question"]!,
-                        confidenceScore: msg["confidenceScore"]!,
-                        shortInsights: msg["shortInsights"]!,
-                        paragraphDetail: msg["paragraphDetail"]!,
-                        mathDetail: msg["mathDetail"]!,
-                        isCached: msg["isCached"] == "true",
-                      );
-                    },
-                  );
-                },
-              ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: provider.conversation.length,
+                      itemBuilder: (context, index) {
+                        if (index < 0 || index >= provider.conversation.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final msg = provider.conversation[index];
+                        return ChatBubble(
+                          role: msg["role"]!,
+                          question: msg["question"]!,
+                          confidenceScore: msg["confidenceScore"]!,
+                          shortInsights: msg["shortInsights"]!,
+                          paragraphDetail: msg["paragraphDetail"]!,
+                          mathDetail: msg["mathDetail"]!,
+                          isCached: msg["isCached"] == "true",
+                        );
+                      },
+                    ),
             ),
             const Divider(height: 1, color: Colors.grey),
+
             // Input row
-            Consumer<ProphetProvider>(
-              builder: (context, provider, child) {
-                return Container(
-                  color: const Color(0xFF202123),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search, color: Colors.white54),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: provider.inputController,
-                          style: const TextStyle(color: Colors.white),
-                          onSubmitted: (value) {
-                            if (value.trim().isNotEmpty) {
-                              provider.askProphet(value.trim());
-                            }
-                          },
-                          decoration: InputDecoration(
-                            hintText: "Enter your question...",
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            filled: true,
-                            fillColor: const Color(0xFF303134),
-                          ),
+            Container(
+              color: const Color(0xFF202123),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, color: Colors.white54),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: provider.inputController,
+                      style: const TextStyle(color: Colors.white),
+                      onSubmitted: (value) {
+                        if (value.trim().isNotEmpty) {
+                          provider.askProphet(value.trim());
+                        }
+                      },
+                      decoration: InputDecoration(
+                        hintText: "Enter your question...",
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
+                        filled: true,
+                        fillColor: const Color(0xFF303134),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: "Send",
-                        icon: const Icon(Icons.send),
-                        color: Colors.blueAccent,
-                        onPressed: () {
-                          final text = provider.inputController.text.trim();
-                          if (text.isNotEmpty) {
-                            provider.askProphet(text);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            Consumer<ProphetProvider>(
-              builder: (context, provider, child) {
-                if (provider.isLoading) {
-                  return Container(
-                    color: Colors.black.withOpacity(0.3),
-                    height: 50,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.blueAccent),
                     ),
-                  );
-                }
-                return const SizedBox();
-              },
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: "Send",
+                    icon: const Icon(Icons.send),
+                    color: Colors.blueAccent,
+                    onPressed: () {
+                      final text = provider.inputController.text.trim();
+                      if (text.isNotEmpty) {
+                        provider.askProphet(text);
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
+            if (provider.isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.3),
+                height: 50,
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.blueAccent),
+                ),
+              ),
           ],
         ),
       ],
@@ -193,14 +185,14 @@ class ProphetChatUI extends StatelessWidget {
   }
 }
 
-/// Chat bubble with fade-in, showing confidence score and insights, with 2-tab detailed view.
+/// Single chat bubble with fade-in and 2-tab details
 class ChatBubble extends StatefulWidget {
-  final String role; // "user" or "ai"
+  final String role;
   final String question;
-  final String confidenceScore; // e.g. "0.002500"
+  final String confidenceScore;
   final String shortInsights;
-  final String paragraphDetail; // Paragraph tab content
-  final String mathDetail;      // Math tab content
+  final String paragraphDetail;
+  final String mathDetail;
   final bool isCached;
 
   const ChatBubble({
@@ -271,7 +263,7 @@ class _ChatBubbleState extends State<ChatBubble> with SingleTickerProviderStateM
               borderRadius: radius,
             ),
             child: isUser
-                ? Text(widget.question, style: const TextStyle(fontSize: 15))
+                ? Text(widget.question, style: const TextStyle(fontFamily: 'Lobster', fontSize: 15))
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -280,6 +272,7 @@ class _ChatBubbleState extends State<ChatBubble> with SingleTickerProviderStateM
                           Text(
                             "Confidence: ${widget.confidenceScore} (~$percentStr%)",
                             style: TextStyle(
+                              fontFamily: 'Lobster',
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: widget.isCached ? Colors.orange : Colors.blueAccent.shade100,
@@ -288,14 +281,14 @@ class _ChatBubbleState extends State<ChatBubble> with SingleTickerProviderStateM
                           if (widget.isCached)
                             const Text(
                               " (cached)",
-                              style: TextStyle(fontSize: 13, color: Colors.orange),
+                              style: TextStyle(fontFamily: 'Lobster', fontSize: 13, color: Colors.orange),
                             )
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
                         "Insights: ${widget.shortInsights}",
-                        style: TextStyle(fontSize: 14, color: textColor),
+                        style: TextStyle(fontFamily: 'Lobster', fontSize: 14, color: textColor),
                       ),
                       const SizedBox(height: 6),
                       if (!showDetails)
@@ -304,6 +297,7 @@ class _ChatBubbleState extends State<ChatBubble> with SingleTickerProviderStateM
                           child: const Text(
                             "Show Detailed Calculations",
                             style: TextStyle(
+                              fontFamily: 'Lobster',
                               fontSize: 13,
                               color: Colors.lightBlue,
                               decoration: TextDecoration.underline,
@@ -325,18 +319,11 @@ class _ChatBubbleState extends State<ChatBubble> with SingleTickerProviderStateM
   }
 }
 
-/// A widget with 2 tabs: "Paragraph" and "Math" for detailed calculations.
 class DetailedTabs extends StatefulWidget {
   final String paragraph;
   final String math;
   final VoidCallback onClose;
-
-  const DetailedTabs({
-    Key? key,
-    required this.paragraph,
-    required this.math,
-    required this.onClose,
-  }) : super(key: key);
+  const DetailedTabs({Key? key, required this.paragraph, required this.math, required this.onClose}) : super(key: key);
 
   @override
   _DetailedTabsState createState() => _DetailedTabsState();
@@ -383,11 +370,11 @@ class _DetailedTabsState extends State<DetailedTabs> with SingleTickerProviderSt
               children: [
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(8),
-                  child: Text(widget.paragraph, style: const TextStyle(fontSize: 14)),
+                  child: Text(widget.paragraph, style: const TextStyle(fontFamily: 'Lobster', fontSize: 14)),
                 ),
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(8),
-                  child: Text(widget.math, style: const TextStyle(fontSize: 14)),
+                  child: Text(widget.math, style: const TextStyle(fontFamily: 'Lobster', fontSize: 14)),
                 ),
               ],
             ),
@@ -398,6 +385,7 @@ class _DetailedTabsState extends State<DetailedTabs> with SingleTickerProviderSt
             child: const Text(
               "Hide Details",
               style: TextStyle(
+                fontFamily: 'Lobster',
                 fontSize: 13,
                 color: Colors.lightBlue,
                 decoration: TextDecoration.underline,
@@ -410,7 +398,7 @@ class _DetailedTabsState extends State<DetailedTabs> with SingleTickerProviderSt
   }
 }
 
-/// The synergy provider for ProphetAI
+/// The synergy provider remains the same
 class ProphetProvider with ChangeNotifier {
   bool isLoading = false;
   List<Map<String, String>> conversation = [];
@@ -420,7 +408,6 @@ class ProphetProvider with ChangeNotifier {
 
   Future<void> askProphet(String event) async {
     inputController.clear();
-    // Add user bubble
     conversation.add({
       "role": "user",
       "question": event,
@@ -443,7 +430,7 @@ class ProphetProvider with ChangeNotifier {
     // Check local cache
     String? cached = await DBService.getCachedResult(event);
     if (cached != null) {
-      final cParts = cached.split("|"); // "conf|short|paragraph|math"
+      final cParts = cached.split("|");
       String conf = cParts.isNotEmpty ? cParts[0] : "0.000001";
       String shortIn = cParts.length > 1 ? cParts[1] : "Cached short insights.";
       String paraIn = cParts.length > 2 ? cParts[2] : "Cached paragraph details.";
@@ -462,9 +449,10 @@ class ProphetProvider with ChangeNotifier {
       return;
     }
 
-    // Call synergy: returns "conf|short|paragraph|math"
+    // synergy => "prob|short|paragraph|math"
     String raw = await synergy.AIService.getProbability(event);
     isLoading = false;
+
     if (raw.startsWith("Error:")) {
       if (raw.contains("429") || raw.contains("rate limit") || raw.contains("out of tokens")) {
         queueMessage = "Queue: Rate-limited. Retrying in 60s...";
@@ -496,7 +484,7 @@ class ProphetProvider with ChangeNotifier {
       }
     }
 
-    final parts = raw.split("|"); // e.g. "0.002500|Short|Paragraph|Math"
+    final parts = raw.split("|");
     double prob = double.tryParse(parts[0]) ?? 0.000001;
     if (prob < 1e-6) prob = 1e-6;
     String finalProb = prob.toStringAsFixed(6);

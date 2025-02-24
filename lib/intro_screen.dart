@@ -16,7 +16,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
   final List<SymbolParticle> particles = [];
   final Random random = Random();
 
-  // Some random symbols
+  // Some random math/science symbols
   final List<String> symbols = ['π', '∑', '∆', '√', '∫', 'θ', 'λ', 'Ω', '≈', '∞', 'µ', 'α'];
 
   @override
@@ -81,13 +81,26 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Big Title
                       Text(
-                        "Welcome to ProphetAI",
+                        "ProphetAI",
                         style: TextStyle(
-                          fontSize: 28,
+                          fontFamily: 'Lobster',
+                          fontSize: 40, // bigger than before
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      // Subtitle
+                      Text(
+                        "Calculate the probability of anything, instantly.",
+                        style: TextStyle(
+                          fontFamily: 'Lobster',
+                          fontSize: 16,
+                          color: Colors.white70,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -105,10 +118,10 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                               ),
                             ),
                             icon: const Icon(Icons.play_arrow, color: Colors.white),
-                            label: const Text("Start", style: TextStyle(color: Colors.white, fontSize: 18)),
+                            label: const Text("Start", style: TextStyle(fontFamily: 'Lobster', color: Colors.white, fontSize: 18)),
                             onPressed: () {
-                              // Fade transition to ProphetScreen
-                              Navigator.pushReplacement(
+                              // Normal push (not pushReplacement) => allows browser back arrow
+                              Navigator.push(
                                 context,
                                 PageRouteBuilder(
                                   pageBuilder: (context, animation, secondaryAnimation) => const ProphetScreen(),
@@ -129,9 +142,8 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                               ),
                             ),
                             icon: const Icon(Icons.help_outline, color: Colors.white),
-                            label: const Text("How to Use", style: TextStyle(color: Colors.white, fontSize: 18)),
+                            label: const Text("How to Use", style: TextStyle(fontFamily: 'Lobster', color: Colors.white, fontSize: 18)),
                             onPressed: () {
-                              // Fade transition to HowToUseScreen
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
