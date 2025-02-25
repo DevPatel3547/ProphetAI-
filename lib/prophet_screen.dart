@@ -1,9 +1,10 @@
-// lib/prophet_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // New import for persistence
 import 'intro_screen.dart';
 import 'how_to_use_screen.dart';
+import 'documentation_screen.dart';
 import 'api_service.dart' as synergy;
 import 'db_service.dart';
 import 'math_service.dart';
@@ -29,11 +30,52 @@ class ProphetChatUI extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<ProphetProvider>(context);
+
+    // If a limit error is set, show a styled pop-up.
+    if (provider.limitError.isNotEmpty) {
+      Future.microtask(() {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: Colors.grey[900],
+            title: Text(
+              "Limit Reached",
+              style: TextStyle(fontFamily: 'Lobster', color: Colors.white),
+            ),
+            content: Text(
+              "${provider.limitError}\n\nFor more info, please refer to the documentation.",
+              style: TextStyle(fontFamily: 'Lobster', color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                child: Text("View Documentation", style: TextStyle(fontFamily: 'Lobster', color: Colors.deepPurpleAccent)),
+                onPressed: () {
+                  provider.clearLimitError();
+                  Navigator.pop(context); // close dialog
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DocumentationScreen()),
+                  );
+                },
+              ),
+              TextButton(
+                child: Text("OK", style: TextStyle(fontFamily: 'Lobster', color: Colors.deepPurpleAccent)),
+                onPressed: () {
+                  provider.clearLimitError();
+                  Navigator.pop(context); // close dialog
+                },
+              ),
+            ],
+          ),
+        );
+      });
+    }
+
     return Stack(
       children: [
         Column(
           children: [
-            // Dark top bar
+            // Top bar
             Container(
               color: const Color(0xFF202123),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -41,7 +83,7 @@ class ProphetChatUI extends StatelessWidget {
                 children: [
                   InkWell(
                     onTap: () {
-                      // Normal push => fade
+                      // Normal push to IntroScreen
                       Navigator.push(
                         context,
                         PageRouteBuilder(
@@ -96,7 +138,7 @@ class ProphetChatUI extends StatelessWidget {
               ),
             const Divider(height: 1, color: Colors.grey),
 
-            // conversation
+            // Conversation area
             Expanded(
               child: provider.conversation.isEmpty
                   ? Center(
@@ -127,25 +169,26 @@ class ProphetChatUI extends StatelessWidget {
             ),
             const Divider(height: 1, color: Colors.grey),
 
-            // Input row
+            // Input row (no search icon)
             Container(
               color: const Color(0xFF202123),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.search, color: Colors.white54),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: provider.inputController,
                       style: const TextStyle(color: Colors.white),
+                      enabled: !provider.isLoading, // disabled during loading
                       onSubmitted: (value) {
-                        if (value.trim().isNotEmpty) {
+                        if (!provider.isLoading && value.trim().isNotEmpty) {
                           provider.askProphet(value.trim());
                         }
                       },
                       decoration: InputDecoration(
-                        hintText: "Enter your question...",
+                        hintText: provider.isLoading
+                            ? "Wait for current request to finish..."
+                            : "Enter your question...",
                         hintStyle: const TextStyle(color: Colors.white54),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -160,12 +203,14 @@ class ProphetChatUI extends StatelessWidget {
                     tooltip: "Send",
                     icon: const Icon(Icons.send),
                     color: Colors.blueAccent,
-                    onPressed: () {
-                      final text = provider.inputController.text.trim();
-                      if (text.isNotEmpty) {
-                        provider.askProphet(text);
-                      }
-                    },
+                    onPressed: provider.isLoading
+                        ? null
+                        : () {
+                            final text = provider.inputController.text.trim();
+                            if (text.isNotEmpty) {
+                              provider.askProphet(text);
+                            }
+                          },
                   ),
                 ],
               ),
@@ -185,7 +230,7 @@ class ProphetChatUI extends StatelessWidget {
   }
 }
 
-/// Single chat bubble with fade-in and 2-tab details
+/// Chat bubble widget (unchanged except for fontFamily modifications)
 class ChatBubble extends StatefulWidget {
   final String role;
   final String question;
@@ -398,7 +443,7 @@ class _DetailedTabsState extends State<DetailedTabs> with SingleTickerProviderSt
   }
 }
 
-/// The synergy provider remains the same
+/// The synergy provider with usage limiting and persistent storage.
 class ProphetProvider with ChangeNotifier {
   bool isLoading = false;
   List<Map<String, String>> conversation = [];
@@ -406,7 +451,50 @@ class ProphetProvider with ChangeNotifier {
   final List<String> requestQueue = [];
   final TextEditingController inputController = TextEditingController();
 
+  // Limit error message to show in a popup.
+  String limitError = '';
+
+  // Track timestamps of usage for the last hour (stored as ISO strings in SharedPreferences).
+  List<DateTime> usageHistory = [];
+
+  // Maximum prompts per hour.
+  static const int maxPromptsPerHour = 3;
+
+  ProphetProvider() {
+    _loadUsageHistory();
+  }
+
+  Future<void> _loadUsageHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? timestamps = prefs.getStringList('usageHistory');
+    if (timestamps != null) {
+      usageHistory = timestamps.map((s) => DateTime.parse(s)).toList();
+      notifyListeners();
+    }
+  }
+
+  Future<void> _saveUsageHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> timestamps = usageHistory.map((dt) => dt.toIso8601String()).toList();
+    await prefs.setStringList('usageHistory', timestamps);
+  }
+
   Future<void> askProphet(String event) async {
+    // Clean up usageHistory: remove entries older than 1 hour.
+    final cutoff = DateTime.now().subtract(const Duration(hours: 1));
+    usageHistory.removeWhere((dt) => dt.isBefore(cutoff));
+    await _saveUsageHistory();
+
+    if (usageHistory.length >= maxPromptsPerHour) {
+      limitError = "You have used your $maxPromptsPerHour prompts for this hour. Please try again later.";
+      notifyListeners();
+      return;
+    }
+
+    // Record the usage and save.
+    usageHistory.add(DateTime.now());
+    await _saveUsageHistory();
+
     inputController.clear();
     conversation.add({
       "role": "user",
@@ -427,7 +515,7 @@ class ProphetProvider with ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    // Check local cache
+    // Check local cache.
     String? cached = await DBService.getCachedResult(event);
     if (cached != null) {
       final cParts = cached.split("|");
@@ -449,7 +537,7 @@ class ProphetProvider with ChangeNotifier {
       return;
     }
 
-    // synergy => "prob|short|paragraph|math"
+    // Call synergy: returns "prob|short|paragraph|math"
     String raw = await synergy.AIService.getProbability(event);
     isLoading = false;
 
@@ -519,6 +607,11 @@ class ProphetProvider with ChangeNotifier {
     conversation.clear();
     queueMessage = "";
     requestQueue.clear();
+    notifyListeners();
+  }
+
+  void clearLimitError() {
+    limitError = '';
     notifyListeners();
   }
 }

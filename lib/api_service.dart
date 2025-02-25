@@ -35,51 +35,73 @@ class AIService {
   }
 
   /// Rotates through each provider in APIConfig until one returns a valid result.
+  /// If all fail or produce invalid JSON, returns null.
   static Future<AIProbabilityResult?> getProbabilityResult(String query) async {
     for (var provider in APIConfig.providers) {
       final result = await _callProvider(provider, query);
-      if (result != null) return result;
+      if (result != null) {
+        return result; // success
+      }
+      // If result == null, move on to the next provider
     }
     return null;
   }
 
   /// Calls one provider with a system prompt that demands 4 JSON keys:
-  /// 1) "probability" (0 < p <= 1)
-  /// 2) "short_explanation"
-  /// 3) "paragraph_explanation"
+  /// 1) "probability" (0 < p <= 1, clamp to 0.000001 if near zero)
+  /// 2) "short_explanation" (1-2 lines)
+  /// 3) "paragraph_explanation" (3-5 lines)
   /// 4) "math_explanation"
-  static Future<AIProbabilityResult?> _callProvider(Map<String, String> provider, String query) async {
+  ///
+  /// We do a few-shot style prompt with an example, strongly instructing the model to return valid JSON only.
+  static Future<AIProbabilityResult?> _callProvider(
+    Map<String, String> provider,
+    String query,
+  ) async {
     final name = provider['name']!;
     final apiUrl = provider['apiUrl']!;
     final apiKey = provider['apiKey']!;
     final model = provider['model']!;
 
-    // The updated system prompt:
+    // We'll print which provider we're trying
+    print("Trying provider: $name");
+
+    // Updated system prompt with a "few-shot" style example
     const systemPrompt = """
-You are an AI that calculates the probability of any event, returning exactly FOUR keys in JSON:
+You are an AI that calculates the probability of any event. You must return EXACTLY FOUR keys in valid JSON:
 1) "probability" => numeric in (0,1], never 0 (clamp to 0.000001 if near zero).
 2) "short_explanation" => 1-2 line summary.
-3) "paragraph_explanation" => longer 3-5 line discussion in plain text.
-4) "math_explanation" => the actual math or formula used in your reasoning.
+3) "paragraph_explanation" => 3-5 lines in plain text.
+4) "math_explanation" => the formula or reasoning.
 
-Output ONLY this JSON. No extra text outside the JSON.
+Example JSON you must produce:
+{
+  "probability": 0.12345,
+  "short_explanation": "One or two lines here.",
+  "paragraph_explanation": "3-5 lines of plain text.",
+  "math_explanation": "Your formula or reasoning."
+}
+
+Return ONLY valid JSON, no disclaimers or extra text. If you cannot comply, output nothing.
+
+User's question:
 """;
 
+    // Build request body
     Map<String, dynamic> requestBody;
     if (name == "cohere") {
-      // Cohere uses { "model": "...", "message": "System: <prompt>\nUser: <query>" }
-      final cohereMsg = "System: $systemPrompt\nUser: $query";
+      // Cohere => { "model": "...", "message": "System: <prompt>\nUser: <query>" }
+      final cohereMsg = "$systemPrompt\nUser: $query";
       requestBody = {
         "model": model,
         "message": cohereMsg,
       };
     } else {
-      // For Together, OpenRouter, Groq => OpenAI-like chat format
+      // For Together, OpenRouter, Groq, Mistral => OpenAI-like chat format
       requestBody = {
         "model": model,
         "messages": [
-          {"role": "system", "content": systemPrompt},
-          {"role": "user", "content": query},
+          {"role": "system", "content": "$systemPrompt\nUser: $query"},
         ]
       };
     }
@@ -108,30 +130,34 @@ Output ONLY this JSON. No extra text outside the JSON.
           rawOutput = jsonResponse["choices"]?[0]?["message"]?["content"]?.toString().trim() ?? "";
         }
 
-        if (rawOutput.isNotEmpty) {
-          // Attempt to parse the JSON
-          try {
-            final parsed = jsonDecode(rawOutput);
-            if (parsed is Map &&
-                parsed.containsKey("probability") &&
-                parsed.containsKey("short_explanation") &&
-                parsed.containsKey("paragraph_explanation") &&
-                parsed.containsKey("math_explanation")) {
+        if (rawOutput.isEmpty) {
+          print("Provider $name => empty or no output. Skipping.");
+          return null;
+        }
 
-              double? prob = double.tryParse(parsed["probability"].toString());
-              String shortExp = parsed["short_explanation"].toString();
-              String paraExp = parsed["paragraph_explanation"].toString();
-              String mathExp = parsed["math_explanation"].toString();
+        // Attempt to parse JSON
+        try {
+          final parsed = jsonDecode(rawOutput);
+          if (parsed is Map &&
+              parsed.containsKey("probability") &&
+              parsed.containsKey("short_explanation") &&
+              parsed.containsKey("paragraph_explanation") &&
+              parsed.containsKey("math_explanation")) {
 
-              if (prob != null && prob > 0 && prob <= 1) {
-                // Final clamp
-                if (prob < 1e-6) prob = 1e-6;
-                return AIProbabilityResult(prob, shortExp, paraExp, mathExp);
-              }
+            double? prob = double.tryParse(parsed["probability"].toString());
+            String shortExp = parsed["short_explanation"].toString();
+            String paraExp = parsed["paragraph_explanation"].toString();
+            String mathExp = parsed["math_explanation"].toString();
+
+            if (prob != null && prob > 0 && prob <= 1) {
+              // Final clamp
+              if (prob < 1e-6) prob = 1e-6;
+              return AIProbabilityResult(prob, shortExp, paraExp, mathExp);
             }
-          } catch (e) {
-            print("Error parsing JSON from $name => $e");
           }
+          print("Provider $name => JSON missing required keys or invalid probability. Skipping.");
+        } catch (e) {
+          print("Provider $name => Error parsing JSON: $e");
         }
       } else {
         print("Error from $name => ${response.statusCode}: ${response.body}");
@@ -139,6 +165,8 @@ Output ONLY this JSON. No extra text outside the JSON.
     } catch (e) {
       print("Error calling $name => $e");
     }
+
+    // If we get here, we return null so synergy tries the next provider
     return null;
   }
 }

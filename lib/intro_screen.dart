@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'prophet_screen.dart';
 import 'how_to_use_screen.dart';
+import 'documentation_screen.dart';
 
 class IntroScreen extends StatefulWidget {
   const IntroScreen({Key? key}) : super(key: key);
@@ -83,10 +84,10 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                     children: [
                       // Big Title
                       Text(
-                        "ProphetAI",
+                        "Welcome to ProphetAI",
                         style: TextStyle(
                           fontFamily: 'Lobster',
-                          fontSize: 40, // bigger than before
+                          fontSize: 34,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
@@ -98,14 +99,13 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                       Text(
                         "Calculate the probability of anything, instantly.",
                         style: TextStyle(
-                          fontFamily: 'Lobster',
                           fontSize: 16,
                           color: Colors.white70,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 40),
-                      // Row of 2 buttons: Start + How to Use
+                      // Row of 3 buttons: Start + Documentation + How to Use
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -118,9 +118,9 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                               ),
                             ),
                             icon: const Icon(Icons.play_arrow, color: Colors.white),
-                            label: const Text("Start", style: TextStyle(fontFamily: 'Lobster', color: Colors.white, fontSize: 18)),
+                            label: const Text("Start", style: TextStyle(color: Colors.white, fontSize: 18)),
                             onPressed: () {
-                              // Normal push (not pushReplacement) => allows browser back arrow
+                              // Normal push => fade
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
@@ -141,13 +141,38 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            icon: const Icon(Icons.help_outline, color: Colors.white),
-                            label: const Text("How to Use", style: TextStyle(fontFamily: 'Lobster', color: Colors.white, fontSize: 18)),
+                            icon: const Icon(Icons.menu_book, color: Colors.white),
+                            label: const Text("Documentation", style: TextStyle(color: Colors.white, fontSize: 18)),
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) => const HowToUseScreen(),
+                                  pageBuilder: (context, animation, secondaryAnimation) =>
+                                      const DocumentationScreen(),
+                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                    return FadeTransition(opacity: animation, child: child);
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 20),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            label: const Text("How to Use", style: TextStyle(color: Colors.white, fontSize: 18)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder: (context, animation, secondaryAnimation) =>
+                                      const HowToUseScreen(),
                                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                     return FadeTransition(opacity: animation, child: child);
                                   },

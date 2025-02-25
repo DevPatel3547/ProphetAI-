@@ -31,5 +31,12 @@ class APIConfig {
           "model": "command-r",
           "apiKey": dotenv.env['COHERE_API_KEY'] ?? ""
         },
+        // 5️⃣ Mistral
+        {
+          "name": "mistral",
+          "apiUrl": "https://api.mistral.ai/v1/chat/completions", 
+          "model": "mistral-large-latest",  // Adjust if you have a different Mistral model
+          "apiKey": dotenv.env['MISTRAL_API_KEY'] ?? ""
+        },
       ];
 }
