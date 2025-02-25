@@ -1,4 +1,3 @@
-// lib/intro_screen.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'prophet_screen.dart';
@@ -17,14 +16,14 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
   final List<SymbolParticle> particles = [];
   final Random random = Random();
 
-  // Some random math/science symbols
+  // List of science/math symbols
   final List<String> symbols = ['π', '∑', '∆', '√', '∫', 'θ', 'λ', 'Ω', '≈', '∞', 'µ', 'α'];
 
   @override
   void initState() {
     super.initState();
-    // Animate continuously
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 8))
+      ..repeat();
 
     // Create 30 random symbol particles
     for (int i = 0; i < 30; i++) {
@@ -48,6 +47,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
     super.dispose();
   }
 
+  // Update each particle’s position
   void _updateParticles() {
     for (var p in particles) {
       p.x += p.vx;
@@ -59,6 +59,11 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    // Use MediaQuery to adjust text sizes on small screens
+    final screenWidth = MediaQuery.of(context).size.width;
+    final titleFontSize = screenWidth < 360 ? 28.0 : 34.0;
+    final subtitleFontSize = screenWidth < 360 ? 14.0 : 16.0;
+
     return Scaffold(
       body: AnimatedBuilder(
         animation: _controller,
@@ -74,115 +79,119 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
             ),
             child: Stack(
               children: [
-                CustomPaint(
-                  painter: SymbolParticlePainter(particles),
-                  child: Container(),
+                // Ensure CustomPaint fills the entire screen
+                SizedBox.expand(
+                  child: CustomPaint(
+                    painter: SymbolParticlePainter(particles),
+                  ),
                 ),
                 Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Big Title
-                      Text(
-                        "Welcome to ProphetAI",
-                        style: TextStyle(
-                          fontFamily: 'Lobster',
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Big Title
+                        Text(
+                          "Welcome to ProphetAI",
+                          style: TextStyle(
+                            fontFamily: 'Lobster',
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 10),
-                      // Subtitle
-                      Text(
-                        "Calculate the probability of anything, instantly.",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
+                        const SizedBox(height: 10),
+                        // Subtitle
+                        Text(
+                          "Calculate the probability of anything, instantly.",
+                          style: TextStyle(
+                            fontSize: subtitleFontSize,
+                            color: Colors.white70,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 40),
-                      // Row of 3 buttons: Start + Documentation + How to Use
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurpleAccent,
-                              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const Icon(Icons.play_arrow, color: Colors.white),
-                            label: const Text("Start", style: TextStyle(color: Colors.white, fontSize: 18)),
-                            onPressed: () {
-                              // Normal push => fade
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) => const ProphetScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                    return FadeTransition(opacity: animation, child: child);
-                                  },
+                        const SizedBox(height: 40),
+                        // Use Wrap for responsive layout of buttons
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 20,
+                          runSpacing: 10,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.deepPurpleAccent,
+                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 20),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blueAccent,
-                              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
                               ),
+                              icon: const Icon(Icons.play_arrow, color: Colors.white),
+                              label: const Text("Start", style: TextStyle(color: Colors.white, fontSize: 18)),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation, secondaryAnimation) =>
+                                        const ProphetScreen(),
+                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                      return FadeTransition(opacity: animation, child: child);
+                                    },
+                                  ),
+                                );
+                              },
                             ),
-                            icon: const Icon(Icons.menu_book, color: Colors.white),
-                            label: const Text("Documentation", style: TextStyle(color: Colors.white, fontSize: 18)),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) =>
-                                      const DocumentationScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                    return FadeTransition(opacity: animation, child: child);
-                                  },
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent,
+                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 20),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
                               ),
+                              icon: const Icon(Icons.menu_book, color: Colors.white),
+                              label: const Text("Documentation", style: TextStyle(color: Colors.white, fontSize: 18)),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation, secondaryAnimation) =>
+                                        const DocumentationScreen(),
+                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                      return FadeTransition(opacity: animation, child: child);
+                                    },
+                                  ),
+                                );
+                              },
                             ),
-                            icon: const Icon(Icons.help_outline, color: Colors.white),
-                            label: const Text("How to Use", style: TextStyle(color: Colors.white, fontSize: 18)),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation, secondaryAnimation) =>
-                                      const HowToUseScreen(),
-                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                    return FadeTransition(opacity: animation, child: child);
-                                  },
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
+                              ),
+                              icon: const Icon(Icons.help_outline, color: Colors.white),
+                              label: const Text("How to Use", style: TextStyle(color: Colors.white, fontSize: 18)),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation, secondaryAnimation) =>
+                                        const HowToUseScreen(),
+                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                      return FadeTransition(opacity: animation, child: child);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -194,7 +203,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
   }
 }
 
-// Particle logic
+// Particle model
 class SymbolParticle {
   String symbol;
   double x, y;
@@ -212,6 +221,7 @@ class SymbolParticle {
   });
 }
 
+// Painter for particles
 class SymbolParticlePainter extends CustomPainter {
   final List<SymbolParticle> particles;
   SymbolParticlePainter(this.particles);
