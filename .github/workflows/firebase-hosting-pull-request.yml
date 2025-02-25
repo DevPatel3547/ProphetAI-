@@ -17,21 +17,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Flutter
+      - name: Install & Build Flutter
         run: |
           sudo apt-get update
           sudo apt-get install -y wget xz-utils unzip
           wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.10.5-stable.tar.xz
           tar xf flutter_linux_3.10.5-stable.tar.xz
-          echo "$PWD/flutter/bin" >> $GITHUB_PATH
-          flutter doctor
-
-      - name: Install Dependencies
-        run: |
+          export PATH="$PWD/flutter/bin:$PATH"
+          flutter --version
           flutter pub get
-
-      - name: Build Flutter Web
-        run: |
           flutter build web --release \
             --dart-define=TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }} \
             --dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
