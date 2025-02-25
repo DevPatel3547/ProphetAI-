@@ -1,4 +1,4 @@
-name: Deploy Flutter Web to Firebase on Merge
+name: Deploy Flutter Web to Firebase on merge
 
 on:
   push:
@@ -10,35 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Check out repository
-      - name: Checkout Repository
+      # 1) Check out your repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Install dependencies required for Flutter
-      - name: Install System Dependencies
+      # 2) Install, Build, and Package in One Step
+      - name: Install & Build Flutter
+        shell: bash
         run: |
+          set -e  # fail on any error
+
+          # Install required system packages
           sudo apt-get update
           sudo apt-get install -y wget xz-utils unzip
 
-      # 3) Install Flutter (Version 3.19.6 to match Dart 3.6+)
-      - name: Install Flutter
-        run: |
+          # Download Flutter 3.19.6 (which includes Dart >=3.6)
           wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.6-stable.tar.xz
+
+          # Extract Flutter
           tar xf flutter_linux_3.19.6-stable.tar.xz
-          echo "export PATH=$PWD/flutter/bin:$PATH" >> $GITHUB_ENV
-          flutter --version  # Verify installation
 
-      # 4) Enable Flutter Web
-      - name: Enable Flutter Web
-        run: flutter config --enable-web
+          # Add Flutter to PATH (only in this script)
+          export PATH="$PWD/flutter/bin:$PATH"
 
-      # 5) Install dependencies
-      - name: Install Flutter Dependencies
-        run: flutter pub get
+          # Verify Flutter version
+          flutter --version
 
-      # 6) Build Flutter Web with API keys
-      - name: Build Flutter Web
-        run: |
+          # Enable web support
+          flutter config --enable-web
+
+          # Install pub dependencies
+          flutter pub get
+
+          # Build Flutter web with Dart defines for your secrets
           flutter build web --release \
             --dart-define=TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }} \
             --dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
@@ -46,7 +50,7 @@ jobs:
             --dart-define=COHERE_API_KEY=${{ secrets.COHERE_API_KEY }} \
             --dart-define=MISTRAL_API_KEY=${{ secrets.MISTRAL_API_KEY }}
 
-      # 7) Deploy to Firebase Hosting (Live)
+      # 3) Deploy to Firebase Hosting
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
