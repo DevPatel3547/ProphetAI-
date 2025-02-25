@@ -8,41 +8,38 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-
     steps:
       # 1) Check out your repository
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Install, Build, and Package in One Step
+      # 2) Install Flutter 3.29.0 & Build in One Step
       - name: Install & Build Flutter
         shell: bash
         run: |
-          set -e  # fail on any error
+          set -e  # Fail fast on any error
 
-          # Install required system packages
+          # 1. System dependencies
           sudo apt-get update
           sudo apt-get install -y wget xz-utils unzip
 
-          # Download Flutter 3.19.6 (which includes Dart >=3.6)
-          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.6-stable.tar.xz
+          # 2. Download Flutter 3.29.0 (which should include Dart >=3.6.1)
+          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.29.0-stable.tar.xz
+          tar xf flutter_linux_3.29.0-stable.tar.xz
 
-          # Extract Flutter
-          tar xf flutter_linux_3.19.6-stable.tar.xz
-
-          # Add Flutter to PATH (only in this script)
+          # 3. Add Flutter to PATH
           export PATH="$PWD/flutter/bin:$PATH"
 
-          # Verify Flutter version
+          # 4. Verify Flutter version
           flutter --version
 
-          # Enable web support
+          # 5. Enable Flutter web
           flutter config --enable-web
 
-          # Install pub dependencies
+          # 6. Install dependencies
           flutter pub get
 
-          # Build Flutter web with Dart defines for your secrets
+          # 7. Build Flutter web with your secrets
           flutter build web --release \
             --dart-define=TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }} \
             --dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
