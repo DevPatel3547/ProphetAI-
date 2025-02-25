@@ -1,4 +1,4 @@
-name: Deploy Flutter Web to Firebase on merge
+name: Deploy Flutter Web to Firebase on Merge
 
 on:
   push:
@@ -10,35 +10,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Check out your repository
-      - name: Checkout
+      # 1) Check out repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2) Install & Set Up Flutter 3.19.6 (which includes Dart 3.6+)
-      - name: Install & Setup Flutter 3.19.6
+      # 2) Install dependencies required for Flutter
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget xz-utils unzip
 
-          # Download Flutter 3.19.6 (or latest stable) for Dart 3.6+
+      # 3) Install Flutter (Version 3.19.6 to match Dart 3.6+)
+      - name: Install Flutter
+        run: |
           wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.6-stable.tar.xz
           tar xf flutter_linux_3.19.6-stable.tar.xz
-
-          # Add Flutter to PATH
           echo "export PATH=$PWD/flutter/bin:$PATH" >> $GITHUB_ENV
+          flutter --version  # Verify installation
 
-          # Verify Flutter version (should show 3.19.6 or later)
-          flutter --version
-
-      # 3) Enable Flutter Web
+      # 4) Enable Flutter Web
       - name: Enable Flutter Web
         run: flutter config --enable-web
 
-      # 4) Install dependencies
-      - name: Install dependencies
+      # 5) Install dependencies
+      - name: Install Flutter Dependencies
         run: flutter pub get
 
-      # 5) Build Flutter Web with your API keys
+      # 6) Build Flutter Web with API keys
       - name: Build Flutter Web
         run: |
           flutter build web --release \
@@ -48,7 +46,7 @@ jobs:
             --dart-define=COHERE_API_KEY=${{ secrets.COHERE_API_KEY }} \
             --dart-define=MISTRAL_API_KEY=${{ secrets.MISTRAL_API_KEY }}
 
-      # 6) Deploy to Firebase Hosting (live channel)
+      # 7) Deploy to Firebase Hosting (Live)
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
