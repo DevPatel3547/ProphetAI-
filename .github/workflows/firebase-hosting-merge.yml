@@ -14,27 +14,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Install Flutter & Build in one step
+      # 2) Install Flutter 3.13.x manually
       - name: Install & Build Flutter
         run: |
-          # Install dependencies for downloading & extracting Flutter
           sudo apt-get update
           sudo apt-get install -y wget xz-utils unzip
 
-          # Download Flutter SDK (3.10.5 stable)
-          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.10.5-stable.tar.xz
-          tar xf flutter_linux_3.10.5-stable.tar.xz
+          # Download Flutter 3.13.8 (or latest stable) for Dart 3.13.x
+          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.13.8-stable.tar.xz
+          tar xf flutter_linux_3.13.8-stable.tar.xz
 
-          # Add Flutter to PATH for this step
+          # Add Flutter to PATH
           export PATH="$PWD/flutter/bin:$PATH"
 
-          # Verify installation
+          # Verify Flutter version (should show 3.13.x)
           flutter --version
 
-          # Install Flutter dependencies
+          # Install pub dependencies
           flutter pub get
 
-          # Build Flutter web with your secrets from GitHub
+          # Build Flutter Web with your secrets from GitHub
           flutter build web --release \
             --dart-define=TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }} \
             --dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
