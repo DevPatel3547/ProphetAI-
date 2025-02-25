@@ -1,0 +1,39 @@
+name: Deploy to Firebase Hosting on merge
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1) Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.10.5'  # or your version
+
+      # 2) Install Dependencies
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # 3) Build Flutter Web with your secrets
+      - name: Build Flutter Web
+        run: |
+          flutter build web --release \
+            --dart-define=TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }} \
+            --dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
+            --dart-define=GROQ_API_KEY=${{ secrets.GROQ_API_KEY }} \
+            --dart-define=COHERE_API_KEY=${{ secrets.COHERE_API_KEY }} \
+            --dart-define=MISTRAL_API_KEY=${{ secrets.MISTRAL_API_KEY }}
+
+      # 4) Deploy to Firebase (live channel)
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PROPHETAI_E600F }}
+          channelId: live
+          projectId: prophetai-e600f
