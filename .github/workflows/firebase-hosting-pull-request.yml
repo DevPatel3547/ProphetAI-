@@ -13,18 +13,22 @@ jobs:
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install & Build Flutter
+        shell: bash
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y wget xz-utils unzip
-          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.13.8-stable.tar.xz
-          tar xf flutter_linux_3.13.8-stable.tar.xz
+          wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.29.0-stable.tar.xz
+          tar xf flutter_linux_3.29.0-stable.tar.xz
           export PATH="$PWD/flutter/bin:$PATH"
           flutter --version
+          flutter config --enable-web
           flutter pub get
           flutter build web --release \
             --dart-define=TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }} \

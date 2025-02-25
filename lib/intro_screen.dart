@@ -84,7 +84,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                     children: [
                       // Big Title
                       Text(
-                        "Welcome to ProphetAI Test",
+                        "Welcome to ProphetAI",
                         style: TextStyle(
                           fontFamily: 'Lobster',
                           fontSize: 34,
