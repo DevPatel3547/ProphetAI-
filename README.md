@@ -51,6 +51,10 @@ It is designed as a cross-platform **Flutter web app**, supporting both desktop 
 6. Query & result are **cached** locally for optimization  
 
 ### **Synergy-Based API Selection**  
+
+![ProphetAI Documentation](assets/ProphetAIDoc.png)
+
+
 🔄 **Round-Robin Selection** – Cycles through available APIs  
 🔄 **Failover Handling** – Retries with another API if one fails  
 🔄 **Usage Monitoring** – Limits requests to avoid exceeding free-tier limits  
