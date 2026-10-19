@@ -34,7 +34,7 @@ class AIService {
     return "${prob.toStringAsFixed(6)}|$shortExp|$paragraphExp|$mathExp";
   }
 
-  /// Rotates through each provider in APIConfig until one returns a valid result.
+  /// Tries each provider in APIConfig.providers, in order, until one returns a valid result.
   /// If all fail or produce invalid JSON, returns null.
   static Future<AIProbabilityResult?> getProbabilityResult(String query) async {
     for (var provider in APIConfig.providers) {
